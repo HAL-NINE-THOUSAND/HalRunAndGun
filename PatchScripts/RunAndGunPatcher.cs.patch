@@ -1,0 +1,55 @@
+﻿using System;
+using System.Linq;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
+using SDX.Compiler;
+using DMT;
+
+public class RunAndGunPatcher : IPatcherMod
+{
+    public bool Patch(ModuleDefinition module)
+    {
+        UpdateMoveController(module);
+        return true;
+
+    }
+    public bool Link(ModuleDefinition gameModule, ModuleDefinition modModule)
+    {
+        return true;
+    }
+
+    private void UpdateMoveController(ModuleDefinition vanilla)
+    {
+
+        Logging.Log("==Run and Gun patch==");
+        var move = vanilla.Types.First(d => d.Name == "PlayerMoveController");
+        var update = move.Methods.First(d => d.Name == "Update");
+
+        var ins = update.Body.Instructions;
+
+
+        var instruction = ins.FirstOrDefault(d => d.OpCode == OpCodes.Callvirt && d.Operand is MethodReference && ((MethodReference)d.Operand).Name.Contains("set_AimingGun"));
+
+        if (instruction == null)
+        {
+            Logging.LogWarning("==Run and Gun instruction not found, skipping===");
+            return;
+        }
+
+        var dargCount = 0;
+        while (true)
+        {
+            var pre = instruction.Previous;
+            var op = instruction.OpCode;
+            ins.Remove(instruction);
+            if (op == OpCodes.Ldarg_0)
+            {
+                if (++dargCount == 2)
+                    break;
+            }
+            instruction = pre;
+        }
+
+    }
+
+}
